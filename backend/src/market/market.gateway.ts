@@ -30,6 +30,10 @@ export class MarketGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     
     // Subscribe to Redis ticks and broadcast to all clients
     const subscriber = this.redisService.getSubscriber();
+    if (!subscriber) {
+      this.logger.error('Redis subscriber not initialized!');
+      return;
+    }
     subscriber.subscribe('market_ticks');
     subscriber.on('message', (channel, message) => {
       if (channel === 'market_ticks') {
