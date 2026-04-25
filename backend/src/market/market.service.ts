@@ -3,7 +3,7 @@ import { AuthService } from '../auth/auth.service';
 import { RedisService } from '../redis/redis.service';
 import { ConfigService } from '@nestjs/config';
 // @ts-ignore
-import { SmartStreamV2 } from 'smartapi-javascript';
+const { SmartStreamV2 } = require('smartapi-javascript');
 
 @Injectable()
 export class MarketService implements OnModuleInit {

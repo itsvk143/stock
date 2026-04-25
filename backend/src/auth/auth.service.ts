@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 const { authenticator } = require('otplib');
 // @ts-ignore
-import { SmartConnect } from 'smartapi-javascript';
+const { SmartConnect } = require('smartapi-javascript');
 
 @Injectable()
 export class AuthService {
