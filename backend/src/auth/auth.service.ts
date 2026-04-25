@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as otplib from 'otplib';
+const { authenticator } = require('otplib');
 // @ts-ignore
 import { SmartConnect } from 'smartapi-javascript';
 
@@ -23,7 +23,7 @@ export class AuthService {
       const password = this.configService.get<string>('SMART_PASSWORD');
       const totpSecret = this.configService.get<string>('SMART_TOTP_SECRET');
 
-      const totp = otplib.authenticator.generate(totpSecret);
+      const totp = authenticator.generate(totpSecret);
 
       const response = await this.smartApi.generateSession(clientCode, password, totp);
 
