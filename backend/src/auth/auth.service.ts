@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 const { authenticator } = require('otplib');
 // @ts-ignore
-const { SmartConnect } = require('smartapi-javascript');
+const { SmartAPI } = require('smartapi-javascript');
 
 @Injectable()
 export class AuthService {
@@ -12,7 +12,7 @@ export class AuthService {
 
   constructor(private configService: ConfigService) {
     const apiKey = this.configService.get<string>('SMART_API_KEY');
-    this.smartApi = new SmartConnect({
+    this.smartApi = new SmartAPI({
       api_key: apiKey,
     });
   }

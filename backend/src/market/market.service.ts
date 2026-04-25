@@ -3,7 +3,7 @@ import { AuthService } from '../auth/auth.service';
 import { RedisService } from '../redis/redis.service';
 import { ConfigService } from '@nestjs/config';
 // @ts-ignore
-const { SmartStreamV2 } = require('smartapi-javascript');
+const { WebSocketV2 } = require('smartapi-javascript');
 
 @Injectable()
 export class MarketService implements OnModuleInit {
@@ -31,7 +31,7 @@ export class MarketService implements OnModuleInit {
     const clientCode = this.configService.get('SMART_CLIENT_CODE');
     const apiKey = this.configService.get('SMART_API_KEY');
 
-    this.ws = new SmartStreamV2({
+    this.ws = new WebSocketV2({
       clientCode: clientCode,
       feedToken: session.feedToken,
       apiKey: apiKey,
