@@ -48,7 +48,7 @@ export const CandleChart = (props: CandleChartProps) => {
 
     chart.timeScale().fitContent();
 
-    const candlestickSeries = chart.addCandlestickSeries({
+    const candlestickSeries = (chart as any).addCandlestickSeries({
       upColor: '#26a69a',
       downColor: '#ef5350',
       borderVisible: false,
