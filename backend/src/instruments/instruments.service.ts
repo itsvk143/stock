@@ -4,21 +4,11 @@ import axios from 'axios';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
-export class InstrumentsService implements OnModuleInit {
+export class InstrumentsService {
   private readonly logger = new Logger(InstrumentsService.name);
   private readonly INSTRUMENT_URL = 'https://margincalculator.angelbroking.com/OpenAPI_Standard/v1/InstrumentJSON.json';
 
   constructor(private prisma: PrismaService) {}
-
-  async onModuleInit() {
-    // Check if we need to sync instruments on startup
-    const count = await this.prisma.instrumentMaster.count();
-    if (count === 0) {
-      this.logger.log('Instrument master is empty, starting initial sync in background...');
-      // Run in background without awaiting, so the HTTP server can start successfully
-      this.syncInstruments().catch(e => this.logger.error(e));
-    }
-  }
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async syncInstruments() {
@@ -42,7 +32,7 @@ export class InstrumentsService implements OnModuleInit {
       this.logger.log(`Filtered to ${filteredInstruments.length} Equity instruments.`);
 
       // Chunking for performance using createMany to avoid connection pool exhaustion
-      const chunkSize = 5000;
+      const chunkSize = 1000;
       for (let i = 0; i < filteredInstruments.length; i += chunkSize) {
         const chunk = filteredInstruments.slice(i, i + chunkSize);
         
