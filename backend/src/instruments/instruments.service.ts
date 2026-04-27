@@ -14,8 +14,9 @@ export class InstrumentsService implements OnModuleInit {
     // Check if we need to sync instruments on startup
     const count = await this.prisma.instrumentMaster.count();
     if (count === 0) {
-      this.logger.log('Instrument master is empty, starting initial sync...');
-      await this.syncInstruments();
+      this.logger.log('Instrument master is empty, starting initial sync in background...');
+      // Run in background without awaiting, so the HTTP server can start successfully
+      this.syncInstruments().catch(e => this.logger.error(e));
     }
   }
 
@@ -40,28 +41,22 @@ export class InstrumentsService implements OnModuleInit {
 
       this.logger.log(`Filtered to ${filteredInstruments.length} Equity instruments.`);
 
-      // Chunking for performance
-      const chunkSize = 1000;
+      // Chunking for performance using createMany to avoid connection pool exhaustion
+      const chunkSize = 5000;
       for (let i = 0; i < filteredInstruments.length; i += chunkSize) {
         const chunk = filteredInstruments.slice(i, i + chunkSize);
-        await Promise.all(chunk.map(inst => 
-          this.prisma.instrumentMaster.upsert({
-            where: { instrumentToken: inst.token },
-            update: {
-              symbol: inst.symbol,
-              exchange: inst.exch_seg,
-              tradingsymbol: inst.name,
-              yahooSymbol: `${inst.symbol}.${inst.exch_seg === 'NSE' ? 'NS' : 'BO'}`,
-            },
-            create: {
-              symbol: inst.symbol,
-              exchange: inst.exch_seg,
-              tradingsymbol: inst.name,
-              instrumentToken: inst.token,
-              yahooSymbol: `${inst.symbol}.${inst.exch_seg === 'NSE' ? 'NS' : 'BO'}`,
-            }
-          })
-        ));
+        
+        await this.prisma.instrumentMaster.createMany({
+          data: chunk.map(inst => ({
+            symbol: inst.symbol,
+            exchange: inst.exch_seg,
+            tradingsymbol: inst.name,
+            instrumentToken: inst.token,
+            yahooSymbol: `${inst.symbol}.${inst.exch_seg === 'NSE' ? 'NS' : 'BO'}`,
+          })),
+          skipDuplicates: true,
+        });
+        
         this.logger.log(`Synced ${Math.min(i + chunkSize, filteredInstruments.length)} / ${filteredInstruments.length}`);
       }
 
