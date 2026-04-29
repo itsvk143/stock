@@ -16,72 +16,91 @@ export class InstrumentsService {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async syncInstruments() {
     const tempFilePath = path.join(os.tmpdir(), 'instruments.json');
-    this.logger.log(`Starting stream-to-disk sync. Temp file: ${tempFilePath}`);
+    this.logger.log(`Starting stream-to-disk sync. Temp: ${tempFilePath}`);
 
     try {
-      // 1. Download to disk using streams (ZERO RAM buffering)
+      // Step 1: Stream download directly to disk — zero RAM buffering
       const writer = fs.createWriteStream(tempFilePath);
       const response = await axios({
         url: this.INSTRUMENT_URL,
         method: 'GET',
         responseType: 'stream',
       });
-
       response.data.pipe(writer);
-
-      await new Promise((resolve, reject) => {
-        writer.on('finish', () => resolve(undefined));
+      await new Promise<void>((resolve, reject) => {
+        writer.on('finish', () => resolve());
         writer.on('error', reject);
       });
+      this.logger.log('Download complete. Starting incremental JSON parse...');
 
-      this.logger.log('File downloaded to disk. Reading and parsing...');
+      // Step 2: Incrementally parse and save using JSONStream
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const JSONStream = require('JSONStream');
+      const chunkSize = 500;
+      let batch: any[] = [];
+      let total = 0;
+      let saved = 0;
 
-      // 2. Read and parse file manually
-      const fileContent = fs.readFileSync(tempFilePath, 'utf8');
-      const instruments = JSON.parse(fileContent);
-      
-      this.logger.log(`Total instruments found: ${instruments.length}. Filtering...`);
-
-      const filteredInstruments = [];
-      for (const inst of instruments) {
-        if (inst.exch_seg === 'NSE' || inst.exch_seg === 'NFO') {
-          filteredInstruments.push({
-            symbol: inst.symbol,
-            exchange: inst.exch_seg,
-            tradingsymbol: inst.name,
-            instrumentToken: inst.token,
-            expiry: inst.expiry,
-            strike: inst.strike ? String(inst.strike) : null,
-            lotsize: inst.lotsize,
-            instrumenttype: inst.instrumenttype,
-            tick_size: inst.tick_size ? String(inst.tick_size) : null,
-          });
-        }
-      }
-
-      this.logger.log(`Filtered down to ${filteredInstruments.length} instruments. Saving to DB...`);
-
-      const chunkSize = 1000;
-      const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-      for (let i = 0; i < filteredInstruments.length; i += chunkSize) {
-        const chunk = filteredInstruments.slice(i, i + chunkSize);
+      const flushBatch = async () => {
+        if (batch.length === 0) return;
+        const toSave = batch.splice(0);
+        saved += toSave.length;
         await this.prisma.instrumentMaster.createMany({
-          data: chunk,
+          data: toSave,
           skipDuplicates: true,
         });
-        this.logger.log(`Synced ${Math.min(i + chunkSize, filteredInstruments.length)} / ${filteredInstruments.length}`);
-        await sleep(50);
-      }
+        this.logger.log(`Saved ${saved} instruments so far...`);
+      };
 
-      this.logger.log('Instrument sync completed successfully.');
+      await new Promise<void>((resolve, reject) => {
+        const readStream = fs.createReadStream(tempFilePath, { encoding: 'utf8' });
+        const jsonStream = JSONStream.parse('*');
+
+        jsonStream.on('data', async (inst: any) => {
+          total++;
+          if (inst.exch_seg === 'NSE' || inst.exch_seg === 'NFO') {
+            batch.push({
+              symbol: inst.symbol,
+              exchange: inst.exch_seg,
+              tradingsymbol: inst.name,
+              instrumentToken: inst.token,
+              expiry: inst.expiry || null,
+              strike: inst.strike ? String(inst.strike) : null,
+              lotsize: inst.lotsize || null,
+              instrumenttype: inst.instrumenttype || null,
+              tick_size: inst.tick_size ? String(inst.tick_size) : null,
+            });
+          }
+
+          if (batch.length >= chunkSize) {
+            jsonStream.pause();
+            try {
+              await flushBatch();
+            } catch (e) {
+              this.logger.error(`Batch save failed: ${e.message}`);
+            }
+            jsonStream.resume();
+          }
+        });
+
+        jsonStream.on('end', async () => {
+          try {
+            await flushBatch();
+            this.logger.log(`Sync complete. Scanned: ${total}, Saved: ${saved}`);
+            resolve();
+          } catch (e) {
+            reject(e);
+          }
+        });
+
+        jsonStream.on('error', reject);
+        readStream.pipe(jsonStream);
+      });
+
     } catch (error) {
       this.logger.error(`Sync failed: ${error.message}`);
     } finally {
-      // Clean up the temp file
-      if (fs.existsSync(tempFilePath)) {
-        fs.unlinkSync(tempFilePath);
-      }
+      if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
       if (global.gc) global.gc();
     }
   }
@@ -109,9 +128,6 @@ export class InstrumentsService {
     maxPe?: number;
     minRoe?: number;
   }) {
-    // For MVP, we'll join with StockCache if data exists
-    // Since we don't have real-time fundamental sync for all stocks yet,
-    // this will work for stocks that have been cached.
     return this.prisma.stockCache.findMany({
       where: {
         AND: [
