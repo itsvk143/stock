@@ -28,8 +28,10 @@ export class InstrumentsService {
       const filteredInstruments = instruments.filter(inst => 
         (inst.exch_seg === 'NSE' || inst.exch_seg === 'BSE') && inst.instrumenttype === ''
       );
-
       this.logger.log(`Filtered to ${filteredInstruments.length} Equity instruments.`);
+      
+      // Clear original large array to free memory
+      (instruments as any) = null;
 
       // Chunking for performance using createMany to avoid connection pool exhaustion
       const chunkSize = 1000;
@@ -51,6 +53,12 @@ export class InstrumentsService {
       }
 
       this.logger.log('Instrument sync completed successfully.');
+      
+      // Manual GC to clear memory after large operation
+      if (global.gc) {
+        this.logger.log('Triggering manual garbage collection...');
+        global.gc();
+      }
     } catch (error) {
       this.logger.error('Failed to sync instruments', error);
     }
