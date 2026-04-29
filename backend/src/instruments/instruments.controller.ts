@@ -13,7 +13,12 @@ export class InstrumentsController {
 
   @Get('sync')
   async forceSync() {
-    this.instrumentsService.syncInstruments(); // Run in background
+    console.log('Sync request received at /api/instruments/sync');
+    setImmediate(() => {
+      this.instrumentsService.syncInstruments().catch(err => {
+        console.error('Background sync failed:', err);
+      });
+    });
     return { message: 'Sync started' };
   }
 
