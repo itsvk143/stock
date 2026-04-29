@@ -25,32 +25,40 @@ export class InstrumentsService {
 
       // We use upsert to avoid duplicates. For large datasets, we might want to use createMany or chunked upserts.
       // For MVP, we'll focus on NSE/BSE Equity first to keep it fast.
-      const filteredInstruments = instruments.filter(inst => 
-        (inst.exch_seg === 'NSE' || inst.exch_seg === 'BSE') && inst.instrumenttype === ''
-      );
-      this.logger.log(`Filtered to ${filteredInstruments.length} Equity instruments.`);
-      
-      // Clear original large array to free memory
-      (instruments as any) = null;
-
-      // Chunking for performance using createMany to avoid connection pool exhaustion
-      const chunkSize = 1000;
-      for (let i = 0; i < filteredInstruments.length; i += chunkSize) {
-        const chunk = filteredInstruments.slice(i, i + chunkSize);
-        
-        await this.prisma.instrumentMaster.createMany({
-          data: chunk.map(inst => ({
+      const filteredInstruments = [];
+      for (let i = 0; i < instruments.length; i++) {
+        const inst = instruments[i];
+        if ((inst.exch_seg === 'NSE' || inst.exch_seg === 'BSE') && inst.instrumenttype === '') {
+          filteredInstruments.push({
             symbol: inst.symbol,
             exchange: inst.exch_seg,
             tradingsymbol: inst.name,
             instrumentToken: inst.token,
             yahooSymbol: `${inst.symbol}.${inst.exch_seg === 'NSE' ? 'NS' : 'BO'}`,
-          })),
+          });
+        }
+      }
+
+      this.logger.log(`Filtered to ${filteredInstruments.length} Equity instruments.`);
+      
+      // CRITICAL: Clear the original massive array immediately
+      (instruments as any) = null;
+
+      // Chunking for database safety
+      const chunkSize = 1000;
+      for (let i = 0; i < filteredInstruments.length; i += chunkSize) {
+        const chunk = filteredInstruments.slice(i, i + chunkSize);
+        
+        await this.prisma.instrumentMaster.createMany({
+          data: chunk,
           skipDuplicates: true,
         });
         
         this.logger.log(`Synced ${Math.min(i + chunkSize, filteredInstruments.length)} / ${filteredInstruments.length}`);
       }
+      
+      // Clear filtered array too
+      (filteredInstruments as any) = null;
 
       this.logger.log('Instrument sync completed successfully.');
       
