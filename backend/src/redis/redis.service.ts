@@ -12,12 +12,22 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     const host = this.configService.get<string>('REDIS_HOST', 'localhost');
     const port = this.configService.get<number>('REDIS_PORT', 6379);
 
+    const redisOptions = {
+      lazyConnect: true,          // don't connect until first command
+      maxRetriesPerRequest: 3,    // fail fast instead of queuing forever
+      enableOfflineQueue: false,  // don't queue commands when disconnected
+      retryStrategy: (times: number) => {
+        if (times > 5) return null; // stop retrying after 5 attempts
+        return Math.min(times * 500, 3000); // wait 500ms, 1s, 1.5s... max 3s
+      },
+    };
+
     if (redisUrl) {
-      this.client = new Redis(redisUrl);
-      this.subscriber = new Redis(redisUrl);
+      this.client = new Redis(redisUrl, redisOptions);
+      this.subscriber = new Redis(redisUrl, redisOptions);
     } else {
-      this.client = new Redis({ host, port });
-      this.subscriber = new Redis({ host, port });
+      this.client = new Redis({ host, port, ...redisOptions });
+      this.subscriber = new Redis({ host, port, ...redisOptions });
     }
 
     // Prevent unhandled errors from crashing the app
