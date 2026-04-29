@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 
 @Injectable()
 export class AiService {
@@ -10,7 +10,7 @@ export class AiService {
 
   constructor(
     private configService: ConfigService,
-    private prisma: PrismaService,
+    private db: DatabaseService,
   ) {
     const apiKey = this.configService.get<string>('GEMINI_API_KEY');
     if (apiKey) {
@@ -55,21 +55,25 @@ export class AiService {
       const response = await result.response;
       const text = response.text();
       
-      // Clean the response in case Gemini adds markdown blocks
       const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
       const analysisResult = JSON.parse(cleanJson);
 
-      // Log the analysis for audit
-      await this.prisma.aIAnalysisLog.create({
-        data: {
-          symbol,
-          recommendation: analysisResult.recommendation,
-          confidence: analysisResult.confidence,
-          summary: analysisResult.summary,
-          verdict: analysisResult.verdict,
-          payload: analysisResult,
-        },
-      });
+      // Log the analysis for audit using SQL
+      const sql = `
+        INSERT INTO "AIAnalysisLog" (
+          "id", "symbol", "recommendation", "confidence", "summary", "verdict", "payload", "createdAt"
+        ) VALUES (
+          gen_random_uuid(), $1, $2, $3, $4, $5, $6, NOW()
+        )
+      `;
+      await this.db.query(sql, [
+        symbol,
+        analysisResult.recommendation,
+        analysisResult.confidence,
+        analysisResult.summary,
+        analysisResult.verdict,
+        JSON.stringify(analysisResult),
+      ]);
 
       return analysisResult;
     } catch (error) {

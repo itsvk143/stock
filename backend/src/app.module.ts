@@ -9,7 +9,7 @@ import { MarketModule } from './market/market.module';
 import { AiModule } from './ai/ai.module';
 import { PortfolioModule } from './portfolio/portfolio.module';
 import { RedisModule } from './redis/redis.module';
-import { PrismaModule } from './prisma/prisma.module';
+import { DatabaseModule } from './database/database.module';
 import { NewsModule } from './news/news.module';
 
 @Module({
@@ -18,7 +18,7 @@ import { NewsModule } from './news/news.module';
       isGlobal: true,
     }),
     ScheduleModule.forRoot(),
-    PrismaModule,
+    DatabaseModule,
     RedisModule,
     AuthModule,
     InstrumentsModule,

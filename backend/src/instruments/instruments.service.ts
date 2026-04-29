@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 import axios from 'axios';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -12,7 +12,7 @@ export class InstrumentsService {
   private readonly INSTRUMENT_URL =
     'https://margincalculator.angelbroking.com/OpenAPI_Standard/v1/OpenAPIScripMaster.json';
 
-  constructor(private prisma: PrismaService) {}
+  constructor(private db: DatabaseService) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async syncInstruments() {
@@ -20,7 +20,6 @@ export class InstrumentsService {
     this.logger.log('Sync started — downloading instrument file...');
 
     try {
-      // Step 1: Stream download to disk (no RAM used for download)
       const writer = fs.createWriteStream(tempFilePath);
       const response = await axios({
         url: this.INSTRUMENT_URL,
@@ -36,8 +35,6 @@ export class InstrumentsService {
       const stats = fs.statSync(tempFilePath);
       this.logger.log(`File downloaded: ${(stats.size / 1024 / 1024).toFixed(1)} MB`);
 
-      // Step 2: Parse and filter — only NSE cash equities (instrumenttype === '')
-      // This gives us ~2,000-3,000 stocks instead of 90,000+ derivatives
       const raw = fs.readFileSync(tempFilePath, 'utf8');
       const all: any[] = JSON.parse(raw);
 
@@ -46,37 +43,58 @@ export class InstrumentsService {
           (inst) =>
             inst.exch_seg === 'NSE' && inst.instrumenttype === '',
         )
-        .map((inst) => ({
-          symbol: inst.symbol,
-          exchange: inst.exch_seg,
-          tradingsymbol: inst.name,
-          instrumentToken: inst.token,
-          expiry: null,
-          strike: null,
-          lotsize: inst.lotsize || null,
-          instrumenttype: inst.instrumenttype || null,
-          tick_size: inst.tick_size ? String(inst.tick_size) : null,
-        }));
+        .map((inst) => [
+          inst.symbol,
+          inst.exch_seg,
+          inst.name,
+          inst.token,
+          null, // expiry
+          null, // strike
+          inst.lotsize || null,
+          inst.instrumenttype || null,
+          inst.tick_size ? String(inst.tick_size) : null,
+          new Date(), // createdAt
+          new Date(), // updatedAt
+        ]);
 
       this.logger.log(`Filtered to ${equities.length} NSE equities. Saving to DB...`);
 
-      // Step 3: Save in small chunks
-      const chunkSize = 500;
-      const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-      let saved = 0;
+      // Using raw pg client for bulk insert efficiency
+      const client = await this.db.getClient();
+      try {
+        const chunkSize = 200;
+        let saved = 0;
 
-      for (let i = 0; i < equities.length; i += chunkSize) {
-        const chunk = equities.slice(i, i + chunkSize);
-        await this.prisma.instrumentMaster.createMany({
-          data: chunk,
-          skipDuplicates: true,
-        });
-        saved += chunk.length;
-        this.logger.log(`Saved ${saved} / ${equities.length}`);
-        await sleep(50);
+        for (let i = 0; i < equities.length; i += chunkSize) {
+          const chunk = equities.slice(i, i + chunkSize);
+          
+          // Generate ($1, $2, ...), ($n, $n+1, ...)
+          const values: any[] = [];
+          const placeHolders = chunk.map((row, rowIndex) => {
+            const rowPlaceHolders = row.map((_, colIndex) => `$${rowIndex * row.length + colIndex + 1}`);
+            values.push(...row);
+            return `(${rowPlaceHolders.join(',')})`;
+          }).join(',');
+
+          const sql = `
+            INSERT INTO "InstrumentMaster" (
+              "symbol", "exchange", "tradingsymbol", "instrumentToken", 
+              "expiry", "strike", "lotsize", "instrumenttype", "tick_size", 
+              "createdAt", "updatedAt"
+            ) VALUES ${placeHolders}
+            ON CONFLICT ("instrumentToken") DO NOTHING
+          `;
+
+          await client.query(sql, values);
+          saved += chunk.length;
+          this.logger.log(`Saved ${saved} / ${equities.length}`);
+          await new Promise(r => setTimeout(r, 50));
+        }
+      } finally {
+        client.release();
       }
 
-      this.logger.log(`✅ Sync complete! ${saved} NSE equities saved.`);
+      this.logger.log(`✅ Sync complete! ${equities.length} NSE equities processed.`);
     } catch (error) {
       this.logger.error(`Sync failed: ${error.message}`);
     } finally {
@@ -88,21 +106,19 @@ export class InstrumentsService {
   }
 
   async search(query: string) {
-    return this.prisma.instrumentMaster.findMany({
-      where: {
-        OR: [
-          { symbol: { contains: query, mode: 'insensitive' } },
-          { tradingsymbol: { contains: query, mode: 'insensitive' } },
-        ],
-      },
-      take: 10,
-    });
+    const sql = `
+      SELECT * FROM "InstrumentMaster"
+      WHERE "symbol" ILIKE $1 OR "tradingsymbol" ILIKE $1
+      LIMIT 10
+    `;
+    const res = await this.db.query(sql, [`%${query}%`]);
+    return res.rows;
   }
 
   async getByToken(token: string) {
-    return this.prisma.instrumentMaster.findUnique({
-      where: { instrumentToken: token },
-    });
+    const sql = `SELECT * FROM "InstrumentMaster" WHERE "instrumentToken" = $1 LIMIT 1`;
+    const res = await this.db.query(sql, [token]);
+    return res.rows[0] || null;
   }
 
   async screener(filters: {
@@ -110,16 +126,24 @@ export class InstrumentsService {
     maxPe?: number;
     minRoe?: number;
   }) {
-    return this.prisma.stockCache.findMany({
-      where: {
-        AND: [
-          filters.minMarketCap ? { marketCap: { gte: filters.minMarketCap } } : {},
-          filters.maxPe ? { peRatio: { lte: filters.maxPe } } : {},
-          filters.minRoe ? { roe: { gte: filters.minRoe } } : {},
-        ],
-      },
-      take: 50,
-      orderBy: { marketCap: 'desc' },
-    });
+    let sql = `SELECT * FROM "StockCache" WHERE 1=1`;
+    const params: any[] = [];
+
+    if (filters.minMarketCap) {
+      params.push(filters.minMarketCap);
+      sql += ` AND "marketCap" >= $${params.length}`;
+    }
+    if (filters.maxPe) {
+      params.push(filters.maxPe);
+      sql += ` AND "peRatio" <= $${params.length}`;
+    }
+    if (filters.minRoe) {
+      params.push(filters.minRoe);
+      sql += ` AND "roe" >= $${params.length}`;
+    }
+
+    sql += ` ORDER BY "marketCap" DESC LIMIT 50`;
+    const res = await this.db.query(sql, params);
+    return res.rows;
   }
 }
