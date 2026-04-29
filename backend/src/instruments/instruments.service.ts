@@ -33,29 +33,36 @@ export class InstrumentsService {
       });
 
       const stats = fs.statSync(tempFilePath);
-      this.logger.log(`File downloaded: ${(stats.size / 1024 / 1024).toFixed(1)} MB`);
+      this.logger.log(`File downloaded: ${(stats.size / 1024 / 1024).toFixed(1)} MB. Parsing...`);
 
-      const raw = fs.readFileSync(tempFilePath, 'utf8');
-      const all: any[] = JSON.parse(raw);
+      const equities: any[][] = [];
+      const JSONStream = require('JSONStream');
+      const stream = fs.createReadStream(tempFilePath);
+      const parser = JSONStream.parse('*');
 
-      const equities = all
-        .filter(
-          (inst) =>
-            inst.exch_seg === 'NSE' && inst.instrumenttype === '',
-        )
-        .map((inst) => [
-          inst.symbol,
-          inst.exch_seg,
-          inst.name,
-          inst.token,
-          null, // expiry
-          null, // strike
-          inst.lotsize || null,
-          inst.instrumenttype || null,
-          inst.tick_size ? String(inst.tick_size) : null,
-          new Date(), // createdAt
-          new Date(), // updatedAt
-        ]);
+      stream.pipe(parser);
+
+      await new Promise<void>((resolve, reject) => {
+        parser.on('data', (inst: any) => {
+          if (inst.exch_seg === 'NSE' && inst.instrumenttype === '') {
+            equities.push([
+              inst.symbol,
+              inst.exch_seg,
+              inst.name,
+              inst.token,
+              null,
+              null,
+              inst.lotsize || null,
+              inst.instrumenttype || null,
+              inst.tick_size ? String(inst.tick_size) : null,
+              new Date(),
+              new Date(),
+            ]);
+          }
+        });
+        parser.on('end', resolve);
+        parser.on('error', reject);
+      });
 
       this.logger.log(`Filtered to ${equities.length} NSE equities. Saving to DB...`);
 
