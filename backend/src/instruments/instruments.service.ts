@@ -1,6 +1,9 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import axios from 'axios';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
@@ -12,68 +15,74 @@ export class InstrumentsService {
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async syncInstruments() {
+    const tempFilePath = path.join(os.tmpdir(), 'instruments.json');
+    this.logger.log(`Starting stream-to-disk sync. Temp file: ${tempFilePath}`);
+
     try {
-      this.logger.log('Fetching instruments from Angel One...');
-      const response = await axios.get(this.INSTRUMENT_URL);
-      const instruments = response.data;
+      // 1. Download to disk using streams (ZERO RAM buffering)
+      const writer = fs.createWriteStream(tempFilePath);
+      const response = await axios({
+        url: this.INSTRUMENT_URL,
+        method: 'GET',
+        responseType: 'stream',
+      });
 
-      if (!Array.isArray(instruments)) {
-        throw new Error('Invalid instrument data received');
-      }
+      response.data.pipe(writer);
 
-      this.logger.log(`Received ${instruments.length} instruments. Upserting to database...`);
+      await new Promise((resolve, reject) => {
+        writer.on('finish', resolve);
+        writer.on('error', reject);
+      });
 
-      // We use upsert to avoid duplicates. For large datasets, we might want to use createMany or chunked upserts.
-      // For MVP, we'll focus on NSE/BSE Equity first to keep it fast.
+      this.logger.log('File downloaded to disk. Reading and parsing...');
+
+      // 2. Read and parse file manually
+      const fileContent = fs.readFileSync(tempFilePath, 'utf8');
+      const instruments = JSON.parse(fileContent);
+      
+      this.logger.log(`Total instruments found: ${instruments.length}. Filtering...`);
+
       const filteredInstruments = [];
-      for (let i = 0; i < instruments.length; i++) {
-        const inst = instruments[i];
-        if ((inst.exch_seg === 'NSE' || inst.exch_seg === 'BSE') && inst.instrumenttype === '') {
+      for (const inst of instruments) {
+        if (inst.exch_seg === 'NSE' || inst.exch_seg === 'NFO') {
           filteredInstruments.push({
             symbol: inst.symbol,
-            exchange: inst.exch_seg,
-            tradingsymbol: inst.name,
-            instrumentToken: inst.token,
-            yahooSymbol: `${inst.symbol}.${inst.exch_seg === 'NSE' ? 'NS' : 'BO'}`,
+            name: inst.name,
+            token: inst.token,
+            expiry: inst.expiry,
+            strike: inst.strike ? parseFloat(inst.strike) : null,
+            lotsize: inst.lotsize,
+            instrumenttype: inst.instrumenttype,
+            exch_seg: inst.exch_seg,
+            tick_size: inst.tick_size ? parseFloat(inst.tick_size) : null,
           });
         }
       }
 
-      this.logger.log(`Filtered to ${filteredInstruments.length} Equity instruments.`);
-      
-      // CRITICAL: Clear the original massive array immediately
-      (instruments as any) = null;
+      this.logger.log(`Filtered down to ${filteredInstruments.length} instruments. Saving to DB...`);
 
-      // Chunking for database safety
       const chunkSize = 1000;
       const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
       for (let i = 0; i < filteredInstruments.length; i += chunkSize) {
         const chunk = filteredInstruments.slice(i, i + chunkSize);
-        
         await this.prisma.instrumentMaster.createMany({
           data: chunk,
           skipDuplicates: true,
         });
-        
         this.logger.log(`Synced ${Math.min(i + chunkSize, filteredInstruments.length)} / ${filteredInstruments.length}`);
-        
-        // Give the event loop a breather to keep the app responsive
         await sleep(50);
       }
-      
-      // Clear filtered array too
-      (filteredInstruments as any) = null;
 
       this.logger.log('Instrument sync completed successfully.');
-      
-      // Manual GC to clear memory after large operation
-      if (global.gc) {
-        this.logger.log('Triggering manual garbage collection...');
-        global.gc();
-      }
     } catch (error) {
-      this.logger.error('Failed to sync instruments', error);
+      this.logger.error(`Sync failed: ${error.message}`);
+    } finally {
+      // Clean up the temp file
+      if (fs.existsSync(tempFilePath)) {
+        fs.unlinkSync(tempFilePath);
+      }
+      if (global.gc) global.gc();
     }
   }
 
