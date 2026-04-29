@@ -19,6 +19,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       this.client = new Redis({ host, port });
       this.subscriber = new Redis({ host, port });
     }
+
+    // Prevent unhandled errors from crashing the app
+    this.client.on('error', (err) => console.error('Redis client error:', err.message));
+    this.subscriber.on('error', (err) => console.error('Redis subscriber error:', err.message));
   }
 
   onModuleInit() {}
