@@ -13,7 +13,7 @@ export class InstrumentsController {
 
   @Get('sync')
   async forceSync() {
-    await this.instrumentsService.syncInstruments();
+    this.instrumentsService.syncInstruments(); // Run in background
     return { message: 'Sync started' };
   }
 
