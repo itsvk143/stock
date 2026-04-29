@@ -45,6 +45,7 @@ export class InstrumentsService {
       (instruments as any) = null;
 
       // Chunking for database safety
+      const chunkSize = 1000;
       const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
       for (let i = 0; i < filteredInstruments.length; i += chunkSize) {
