@@ -45,7 +45,8 @@ export class InstrumentsService {
       (instruments as any) = null;
 
       // Chunking for database safety
-      const chunkSize = 1000;
+      const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
       for (let i = 0; i < filteredInstruments.length; i += chunkSize) {
         const chunk = filteredInstruments.slice(i, i + chunkSize);
         
@@ -55,6 +56,9 @@ export class InstrumentsService {
         });
         
         this.logger.log(`Synced ${Math.min(i + chunkSize, filteredInstruments.length)} / ${filteredInstruments.length}`);
+        
+        // Give the event loop a breather to keep the app responsive
+        await sleep(50);
       }
       
       // Clear filtered array too
