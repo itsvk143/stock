@@ -6,7 +6,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 @Injectable()
 export class InstrumentsService {
   private readonly logger = new Logger(InstrumentsService.name);
-  private readonly INSTRUMENT_URL = 'https://margincalculator.angelbroking.com/OpenAPI_Standard/v1/InstrumentJSON.json';
+  private readonly INSTRUMENT_URL = 'https://margincalculator.angelbroking.com/OpenAPI_Standard/v1/OpenAPIScripMaster.json';
 
   constructor(private prisma: PrismaService) {}
 
