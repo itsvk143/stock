@@ -30,7 +30,7 @@ export class InstrumentsService {
       response.data.pipe(writer);
 
       await new Promise((resolve, reject) => {
-        writer.on('finish', resolve);
+        writer.on('finish', () => resolve(undefined));
         writer.on('error', reject);
       });
 
@@ -47,14 +47,14 @@ export class InstrumentsService {
         if (inst.exch_seg === 'NSE' || inst.exch_seg === 'NFO') {
           filteredInstruments.push({
             symbol: inst.symbol,
-            name: inst.name,
-            token: inst.token,
+            exchange: inst.exch_seg,
+            tradingsymbol: inst.name,
+            instrumentToken: inst.token,
             expiry: inst.expiry,
-            strike: inst.strike ? parseFloat(inst.strike) : null,
+            strike: inst.strike ? String(inst.strike) : null,
             lotsize: inst.lotsize,
             instrumenttype: inst.instrumenttype,
-            exch_seg: inst.exch_seg,
-            tick_size: inst.tick_size ? parseFloat(inst.tick_size) : null,
+            tick_size: inst.tick_size ? String(inst.tick_size) : null,
           });
         }
       }
