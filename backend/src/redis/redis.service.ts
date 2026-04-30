@@ -13,12 +13,11 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     const port = this.configService.get<number>('REDIS_PORT', 6379);
 
     const redisOptions = {
-      lazyConnect: true,          // don't connect until first command
-      maxRetriesPerRequest: 3,    // fail fast instead of queuing forever
-      enableOfflineQueue: false,  // don't queue commands when disconnected
+      lazyConnect: true,
+      maxRetriesPerRequest: 10,
+      enableOfflineQueue: true,
       retryStrategy: (times: number) => {
-        if (times > 5) return null; // stop retrying after 5 attempts
-        return Math.min(times * 500, 3000); // wait 500ms, 1s, 1.5s... max 3s
+        return Math.min(times * 500, 3000);
       },
     };
 
@@ -35,7 +34,16 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     this.subscriber.on('error', (err) => console.error('Redis subscriber error:', err.message));
   }
 
-  onModuleInit() {}
+  async onModuleInit() {
+    try {
+      await Promise.all([
+        this.client.connect(),
+        this.subscriber.connect(),
+      ]);
+    } catch (err) {
+      console.error('Redis initialization failed:', err.message);
+    }
+  }
 
   onModuleDestroy() {
     this.client.quit();

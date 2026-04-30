@@ -27,19 +27,27 @@ export class MarketGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 
   afterInit(server: Server) {
     this.logger.log('Market Gateway Initialized');
-    
+    this.setupRedisSubscription();
+  }
+
+  private setupRedisSubscription() {
     try {
-      // Subscribe to Redis ticks and broadcast to all clients
       const subscriber = this.redisService.getSubscriber();
       if (!subscriber) {
         this.logger.error('Redis subscriber not initialized!');
         return;
       }
+
       subscriber.subscribe('market_ticks', (err) => {
         if (err) {
           this.logger.error(`Redis subscribe error: ${err.message}`);
+          // Retry subscription after 5 seconds if it fails
+          setTimeout(() => this.setupRedisSubscription(), 5000);
+        } else {
+          this.logger.log('Successfully subscribed to market_ticks channel');
         }
       });
+
       subscriber.on('message', (channel, message) => {
         if (channel === 'market_ticks') {
           try {
@@ -51,7 +59,7 @@ export class MarketGateway implements OnGatewayInit, OnGatewayConnection, OnGate
         }
       });
     } catch (error) {
-      this.logger.error(`MarketGateway Redis init failed: ${error.message}`);
+      this.logger.error(`MarketGateway Redis setup failed: ${error.message}`);
     }
   }
 
