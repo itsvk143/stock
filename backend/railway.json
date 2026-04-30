@@ -1,0 +1,10 @@
+{
+  "build": {
+    "builder": "NIXPACKS"
+  },
+  "deploy": {
+    "startCommand": "node --max-old-space-size=384 dist/main",
+    "healthcheckPath": "/api",
+    "healthcheckTimeout": 120
+  }
+}
