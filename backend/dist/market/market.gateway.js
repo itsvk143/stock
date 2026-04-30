@@ -27,14 +27,32 @@ let MarketGateway = MarketGateway_1 = class MarketGateway {
     }
     afterInit(server) {
         this.logger.log('Market Gateway Initialized');
-        const subscriber = this.redisService.getSubscriber();
-        subscriber.subscribe('market_ticks');
-        subscriber.on('message', (channel, message) => {
-            if (channel === 'market_ticks') {
-                const data = JSON.parse(message);
-                this.server.emit(`tick:${data.token}`, data);
+        try {
+            const subscriber = this.redisService.getSubscriber();
+            if (!subscriber) {
+                this.logger.error('Redis subscriber not initialized!');
+                return;
             }
-        });
+            subscriber.subscribe('market_ticks', (err) => {
+                if (err) {
+                    this.logger.error(`Redis subscribe error: ${err.message}`);
+                }
+            });
+            subscriber.on('message', (channel, message) => {
+                if (channel === 'market_ticks') {
+                    try {
+                        const data = JSON.parse(message);
+                        this.server.emit(`tick:${data.token}`, data);
+                    }
+                    catch (e) {
+                        this.logger.error(`Failed to parse market tick: ${e.message}`);
+                    }
+                }
+            });
+        }
+        catch (error) {
+            this.logger.error(`MarketGateway Redis init failed: ${error.message}`);
+        }
     }
     handleConnection(client) {
         this.logger.log(`Client connected: ${client.id}`);

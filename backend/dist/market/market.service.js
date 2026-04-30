@@ -15,7 +15,7 @@ const common_1 = require("@nestjs/common");
 const auth_service_1 = require("../auth/auth.service");
 const redis_service_1 = require("../redis/redis.service");
 const config_1 = require("@nestjs/config");
-const smartapi_javascript_1 = require("smartapi-javascript");
+const { WebSocketV2 } = require('smartapi-javascript');
 let MarketService = MarketService_1 = class MarketService {
     authService;
     redisService;
@@ -38,7 +38,7 @@ let MarketService = MarketService_1 = class MarketService {
         const session = await this.authService.getSession();
         const clientCode = this.configService.get('SMART_CLIENT_CODE');
         const apiKey = this.configService.get('SMART_API_KEY');
-        this.ws = new smartapi_javascript_1.SmartStreamV2({
+        this.ws = new WebSocketV2({
             clientCode: clientCode,
             feedToken: session.feedToken,
             apiKey: apiKey,

@@ -22,13 +22,31 @@ let RedisService = class RedisService {
     subscriber;
     constructor(configService) {
         this.configService = configService;
-    }
-    onModuleInit() {
+        const redisUrl = this.configService.get('REDIS_URL');
         const host = this.configService.get('REDIS_HOST', 'localhost');
         const port = this.configService.get('REDIS_PORT', 6379);
-        this.client = new ioredis_1.default({ host, port });
-        this.subscriber = new ioredis_1.default({ host, port });
+        const redisOptions = {
+            lazyConnect: true,
+            maxRetriesPerRequest: 3,
+            enableOfflineQueue: false,
+            retryStrategy: (times) => {
+                if (times > 5)
+                    return null;
+                return Math.min(times * 500, 3000);
+            },
+        };
+        if (redisUrl) {
+            this.client = new ioredis_1.default(redisUrl, redisOptions);
+            this.subscriber = new ioredis_1.default(redisUrl, redisOptions);
+        }
+        else {
+            this.client = new ioredis_1.default({ host, port, ...redisOptions });
+            this.subscriber = new ioredis_1.default({ host, port, ...redisOptions });
+        }
+        this.client.on('error', (err) => console.error('Redis client error:', err.message));
+        this.subscriber.on('error', (err) => console.error('Redis subscriber error:', err.message));
     }
+    onModuleInit() { }
     onModuleDestroy() {
         this.client.quit();
         this.subscriber.quit();

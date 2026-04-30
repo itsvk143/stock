@@ -14,7 +14,7 @@ exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const { authenticator } = require('otplib');
-const smartapi_javascript_1 = require("smartapi-javascript");
+const { SmartAPI } = require('smartapi-javascript');
 let AuthService = AuthService_1 = class AuthService {
     configService;
     logger = new common_1.Logger(AuthService_1.name);
@@ -23,7 +23,7 @@ let AuthService = AuthService_1 = class AuthService {
     constructor(configService) {
         this.configService = configService;
         const apiKey = this.configService.get('SMART_API_KEY');
-        this.smartApi = new smartapi_javascript_1.SmartConnect({
+        this.smartApi = new SmartAPI({
             api_key: apiKey,
         });
     }

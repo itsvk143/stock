@@ -26,7 +26,12 @@ let InstrumentsController = class InstrumentsController {
         return this.instrumentsService.search(query);
     }
     async forceSync() {
-        await this.instrumentsService.syncInstruments();
+        console.log('Sync request received at /api/instruments/sync');
+        setImmediate(() => {
+            this.instrumentsService.syncInstruments().catch(err => {
+                console.error('Background sync failed:', err);
+            });
+        });
         return { message: 'Sync started' };
     }
     async getByToken(token) {

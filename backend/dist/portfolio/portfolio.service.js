@@ -11,50 +11,75 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PortfolioService = void 0;
 const common_1 = require("@nestjs/common");
-const prisma_service_1 = require("../prisma/prisma.service");
+const database_service_1 = require("../database/database.service");
 let PortfolioService = class PortfolioService {
-    prisma;
-    constructor(prisma) {
-        this.prisma = prisma;
+    db;
+    constructor(db) {
+        this.db = db;
     }
     async getPortfolio(userId) {
-        return this.prisma.portfolio.findMany({
-            where: { userId },
-            include: { holdings: true },
-        });
+        const sql = `
+      SELECT p.*, 
+        COALESCE(json_agg(h.*) FILTER (WHERE h.id IS NOT NULL), '[]') as holdings
+      FROM "Portfolio" p
+      LEFT JOIN "Holding" h ON p.id = h."portfolioId"
+      WHERE p."userId" = $1
+      GROUP BY p.id
+    `;
+        const res = await this.db.query(sql, [userId]);
+        return res.rows;
     }
     async addHolding(userId, portfolioId, data) {
-        return this.prisma.holding.create({
-            data: {
-                portfolioId,
-                instrumentToken: data.token,
-                symbol: data.symbol,
-                exchange: data.exchange,
-                quantity: data.quantity,
-                avgPrice: data.avgPrice,
-            },
-        });
+        const sql = `
+      INSERT INTO "Holding" (
+        "id", "portfolioId", "instrumentToken", "symbol", "exchange", 
+        "quantity", "avgPrice", "createdAt", "updatedAt"
+      ) VALUES (
+        gen_random_uuid(), $1, $2, $3, $4, $5, $6, NOW(), NOW()
+      ) RETURNING *
+    `;
+        const res = await this.db.query(sql, [
+            portfolioId,
+            data.token,
+            data.symbol,
+            data.exchange,
+            data.quantity,
+            data.avgPrice,
+        ]);
+        return res.rows[0];
     }
     async getWatchlist(userId) {
-        return this.prisma.watchlist.findMany({
-            where: { userId },
-            include: { items: true },
-        });
+        const sql = `
+      SELECT w.*, 
+        COALESCE(json_agg(wi.*) FILTER (WHERE wi.id IS NOT NULL), '[]') as items
+      FROM "Watchlist" w
+      LEFT JOIN "WatchlistItem" wi ON w.id = wi."watchlistId"
+      WHERE w."userId" = $1
+      GROUP BY w.id
+    `;
+        const res = await this.db.query(sql, [userId]);
+        return res.rows;
     }
     async addToWatchlist(userId, watchlistId, data) {
-        return this.prisma.watchlistItem.create({
-            data: {
-                watchlistId,
-                instrumentToken: data.token,
-                symbol: data.symbol,
-                exchange: data.exchange,
-            },
-        });
+        const sql = `
+      INSERT INTO "WatchlistItem" (
+        "id", "watchlistId", "instrumentToken", "symbol", "exchange", "createdAt"
+      ) VALUES (
+        gen_random_uuid(), $1, $2, $3, $4, NOW()
+      ) RETURNING *
+    `;
+        const res = await this.db.query(sql, [
+            watchlistId,
+            data.token,
+            data.symbol,
+            data.exchange,
+        ]);
+        return res.rows[0];
     }
 };
 exports.PortfolioService = PortfolioService;
 exports.PortfolioService = PortfolioService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [database_service_1.DatabaseService])
 ], PortfolioService);
 //# sourceMappingURL=portfolio.service.js.map

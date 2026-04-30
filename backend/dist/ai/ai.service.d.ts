@@ -1,10 +1,10 @@
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 export declare class AiService {
     private configService;
-    private prisma;
+    private db;
     private readonly logger;
-    private openai;
-    constructor(configService: ConfigService, prisma: PrismaService);
+    private genAI;
+    constructor(configService: ConfigService, db: DatabaseService);
     analyzeStock(symbol: string, data: any): Promise<any>;
 }

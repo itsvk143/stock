@@ -18,7 +18,7 @@ const market_module_1 = require("./market/market.module");
 const ai_module_1 = require("./ai/ai.module");
 const portfolio_module_1 = require("./portfolio/portfolio.module");
 const redis_module_1 = require("./redis/redis.module");
-const prisma_module_1 = require("./prisma/prisma.module");
+const database_module_1 = require("./database/database.module");
 const news_module_1 = require("./news/news.module");
 let AppModule = class AppModule {
 };
@@ -30,7 +30,7 @@ exports.AppModule = AppModule = __decorate([
                 isGlobal: true,
             }),
             schedule_1.ScheduleModule.forRoot(),
-            prisma_module_1.PrismaModule,
+            database_module_1.DatabaseModule,
             redis_module_1.RedisModule,
             auth_module_1.AuthModule,
             instruments_module_1.InstrumentsModule,

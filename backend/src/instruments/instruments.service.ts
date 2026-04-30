@@ -104,6 +104,9 @@ export class InstrumentsService {
       this.logger.log(`✅ Sync complete! ${equities.length} NSE equities processed.`);
     } catch (error) {
       this.logger.error(`Sync failed: ${error.message}`);
+      if (error.stack) {
+        this.logger.error(error.stack);
+      }
     } finally {
       try {
         if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
