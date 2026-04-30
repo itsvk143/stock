@@ -15,6 +15,22 @@ export class InstrumentsService {
 
   constructor(private db: DatabaseService) {}
 
+  async onModuleInit() {
+    // Check if we have data, if not, trigger a sync
+    try {
+      const res = await this.db.query('SELECT COUNT(*) FROM "InstrumentMaster"');
+      const count = parseInt(res.rows[0].count);
+      if (count === 0) {
+        this.logger.log('Database is empty. Triggering initial sync...');
+        this.syncInstruments();
+      } else {
+        this.logger.log(`Database has ${count} instruments.`);
+      }
+    } catch (error) {
+      this.logger.error(`Initial data check failed: ${error.message}`);
+    }
+  }
+
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async syncInstruments() {
     const tempFilePath = path.join(os.tmpdir(), 'instruments.json');

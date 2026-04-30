@@ -6,9 +6,10 @@ export class InstrumentsController {
   constructor(private readonly instrumentsService: InstrumentsService) {}
 
   @Get('search')
-  async search(@Query('q') query: string) {
-    if (!query || query.length < 2) return [];
-    return this.instrumentsService.search(query);
+  async search(@Query('q') q: string, @Query('query') query: string) {
+    const searchTerm = q || query;
+    if (!searchTerm || searchTerm.length < 2) return [];
+    return this.instrumentsService.search(searchTerm);
   }
 
   @Get('sync')
