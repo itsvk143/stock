@@ -36,7 +36,7 @@ export class InstrumentsService {
       this.logger.log(`File downloaded: ${(stats.size / 1024 / 1024).toFixed(1)} MB. Parsing...`);
 
       const equities: any[][] = [];
-      const JSONStream = require('JSONStream');
+      const JSONStream = await import('JSONStream');
       const stream = fs.createReadStream(tempFilePath);
       const parser = JSONStream.parse('*');
 

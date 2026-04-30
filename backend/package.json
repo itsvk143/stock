@@ -52,6 +52,7 @@
     "@types/cron": "^2.0.1",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
+    "@types/jsonstream": "^0.8.33",
     "@types/node": "^24.12.2",
     "@types/pg": "^8.20.0",
     "@types/socket.io": "^3.0.1",
