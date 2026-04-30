@@ -5,8 +5,8 @@
     "buildCommand": "npm run build"
   },
   "deploy": {
-    "startCommand": "node --max-old-space-size=256 --expose-gc dist/main",
-    "healthcheckPath": "/",
+    "startCommand": "node --max-old-space-size=384 --expose-gc dist/main",
+    "healthcheckPath": "/api",
     "restartPolicyType": "ON_FAILURE"
   }
 }
