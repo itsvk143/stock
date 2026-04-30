@@ -134,8 +134,8 @@ export class InstrumentsService {
   async search(query: string) {
     const sql = `
       SELECT * FROM "InstrumentMaster"
-      WHERE "symbol" ILIKE $1 OR "tradingsymbol" ILIKE $1
-      LIMIT 10
+      WHERE LOWER("symbol") LIKE LOWER($1) OR LOWER("tradingsymbol") LIKE LOWER($1)
+      LIMIT 20
     `;
     const res = await this.db.query(sql, [`%${query}%`]);
     return res.rows;

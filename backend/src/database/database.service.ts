@@ -8,16 +8,12 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DatabaseService.name);
 
   constructor(private configService: ConfigService) {
-    const connectionString = this.configService.get<string>('DATABASE_URL');
-    
-    const config: PoolConfig = {
-      connectionString,
-      max: 2, // Very low connection pool for Railway free tier
+    this.pool = new Pool({
+      connectionString: this.configService.get<string>('DATABASE_URL'),
+      max: 10, // Increase pool size for better concurrency
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
-    };
-
-    this.pool = new Pool(config);
+      connectionTimeoutMillis: 5000, // Reduced timeout to fail fast
+    });
 
     this.pool.on('error', (err) => {
       this.logger.error('Unexpected error on idle client', err);
@@ -59,6 +55,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         );
         CREATE INDEX IF NOT EXISTS "idx_instrument_symbol" ON "InstrumentMaster"("symbol");
         CREATE INDEX IF NOT EXISTS "idx_instrument_tradingsymbol" ON "InstrumentMaster"("tradingsymbol");
+        CREATE INDEX IF NOT EXISTS "idx_instrument_search" ON "InstrumentMaster" (LOWER("symbol"), LOWER("tradingsymbol"));
 
         CREATE TABLE IF NOT EXISTS "Watchlist" (
           "id" TEXT PRIMARY KEY,
