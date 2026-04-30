@@ -6,12 +6,8 @@ export class MarketController {
   constructor(private readonly marketService: MarketService) {}
 
   @Get('ltp')
-  async getLtp(
-    @Query('exchange') exchange: string,
-    @Query('tradingsymbol') tradingsymbol: string,
-    @Query('symboltoken') symboltoken: string,
-  ) {
-    return this.marketService.getLtp(exchange, tradingsymbol, symboltoken);
+  async getLtp(@Query('symbol') symbol: string) {
+    return this.marketService.getLtp(symbol);
   }
 
   @Get('candles')

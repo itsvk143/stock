@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+jugaad-data
+requests
+python-dotenv
+smartapi-python
