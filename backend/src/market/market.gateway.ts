@@ -15,6 +15,8 @@ import { MarketService } from './market.service';
   cors: {
     origin: '*',
   },
+  transports: ['websocket', 'polling'],
+  path: '/socket.io/',
 })
 export class MarketGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
@@ -31,36 +33,36 @@ export class MarketGateway implements OnGatewayInit, OnGatewayConnection, OnGate
   }
 
   private setupRedisSubscription() {
-    try {
-      const subscriber = this.redisService.getSubscriber();
-      if (!subscriber) {
-        this.logger.error('Redis subscriber not initialized!');
-        return;
-      }
-
+    const subscriber = this.redisService.getSubscriber();
+    
+    const doSubscribe = () => {
+      this.logger.log('Redis ready, subscribing to market_ticks...');
       subscriber.subscribe('market_ticks', (err) => {
         if (err) {
           this.logger.error(`Redis subscribe error: ${err.message}`);
-          // Retry subscription after 5 seconds if it fails
-          setTimeout(() => this.setupRedisSubscription(), 5000);
+          setTimeout(() => doSubscribe(), 5000);
         } else {
           this.logger.log('Successfully subscribed to market_ticks channel');
         }
       });
+    };
 
-      subscriber.on('message', (channel, message) => {
-        if (channel === 'market_ticks') {
-          try {
-            const data = JSON.parse(message);
-            this.server.emit(`tick:${data.token}`, data);
-          } catch (e) {
-            this.logger.error(`Failed to parse market tick: ${e.message}`);
-          }
-        }
-      });
-    } catch (error) {
-      this.logger.error(`MarketGateway Redis setup failed: ${error.message}`);
+    if (subscriber.status === 'ready') {
+      doSubscribe();
+    } else {
+      subscriber.once('ready', () => doSubscribe());
     }
+
+    subscriber.on('message', (channel, message) => {
+      if (channel === 'market_ticks') {
+        try {
+          const data = JSON.parse(message);
+          this.server.emit(`tick:${data.token}`, data);
+        } catch (e) {
+          this.logger.error(`Failed to parse market tick: ${e.message}`);
+        }
+      }
+    });
   }
 
   handleConnection(client: Socket) {
