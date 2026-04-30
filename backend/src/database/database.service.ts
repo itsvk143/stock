@@ -31,6 +31,8 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       
       // Basic schema initialization
       await client.query(`
+        CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
         CREATE TABLE IF NOT EXISTS "User" (
           "id" TEXT PRIMARY KEY,
           "email" TEXT UNIQUE NOT NULL,
