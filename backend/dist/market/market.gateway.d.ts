@@ -9,6 +9,7 @@ export declare class MarketGateway implements OnGatewayInit, OnGatewayConnection
     private readonly logger;
     constructor(redisService: RedisService, marketService: MarketService);
     afterInit(server: Server): void;
+    private setupRedisSubscription;
     handleConnection(client: Socket): void;
     handleDisconnect(client: Socket): void;
     handleSubscribe(client: Socket, tokens: string[]): Promise<void>;

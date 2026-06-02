@@ -20,8 +20,8 @@ let MarketController = class MarketController {
     constructor(marketService) {
         this.marketService = marketService;
     }
-    async getLtp(exchange, tradingsymbol, symboltoken) {
-        return this.marketService.getLtp(exchange, tradingsymbol, symboltoken);
+    async getLtp(symbol) {
+        return this.marketService.getLtp(symbol);
     }
     async getCandles(exchange, symboltoken, interval, from, to) {
         return this.marketService.getCandleData(exchange, symboltoken, interval, from, to);
@@ -30,11 +30,9 @@ let MarketController = class MarketController {
 exports.MarketController = MarketController;
 __decorate([
     (0, common_1.Get)('ltp'),
-    __param(0, (0, common_1.Query)('exchange')),
-    __param(1, (0, common_1.Query)('tradingsymbol')),
-    __param(2, (0, common_1.Query)('symboltoken')),
+    __param(0, (0, common_1.Query)('symbol')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], MarketController.prototype, "getLtp", null);
 __decorate([

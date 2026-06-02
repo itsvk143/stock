@@ -27,32 +27,46 @@ let MarketGateway = MarketGateway_1 = class MarketGateway {
     }
     afterInit(server) {
         this.logger.log('Market Gateway Initialized');
-        try {
-            const subscriber = this.redisService.getSubscriber();
-            if (!subscriber) {
-                this.logger.error('Redis subscriber not initialized!');
-                return;
+        this.setupRedisSubscription();
+    }
+    setupRedisSubscription() {
+        const subscriber = this.redisService.getSubscriber();
+        const subscribeToChannel = async () => {
+            try {
+                if (subscriber.status === 'ready') {
+                    this.logger.log('Subscribing to market_ticks...');
+                    await subscriber.subscribe('market_ticks');
+                    this.logger.log('Successfully subscribed to market_ticks channel');
+                }
+                else {
+                    this.logger.warn(`Cannot subscribe to market_ticks, subscriber status is: ${subscriber.status}`);
+                }
             }
-            subscriber.subscribe('market_ticks', (err) => {
-                if (err) {
-                    this.logger.error(`Redis subscribe error: ${err.message}`);
+            catch (err) {
+                this.logger.error(`Redis subscribe error: ${err.message}`);
+                if (subscriber.status === 'ready') {
+                    setTimeout(() => subscribeToChannel(), 5000);
                 }
-            });
-            subscriber.on('message', (channel, message) => {
-                if (channel === 'market_ticks') {
-                    try {
-                        const data = JSON.parse(message);
-                        this.server.emit(`tick:${data.token}`, data);
-                    }
-                    catch (e) {
-                        this.logger.error(`Failed to parse market tick: ${e.message}`);
-                    }
+            }
+        };
+        subscriber.on('ready', () => {
+            this.logger.log('Redis subscriber connected/reconnected');
+            subscribeToChannel();
+        });
+        if (subscriber.status === 'ready') {
+            subscribeToChannel();
+        }
+        subscriber.on('message', (channel, message) => {
+            if (channel === 'market_ticks') {
+                try {
+                    const data = JSON.parse(message);
+                    this.server.emit(`tick:${data.token}`, data);
                 }
-            });
-        }
-        catch (error) {
-            this.logger.error(`MarketGateway Redis init failed: ${error.message}`);
-        }
+                catch (e) {
+                    this.logger.error(`Failed to parse market tick: ${e.message}`);
+                }
+            }
+        });
     }
     handleConnection(client) {
         this.logger.log(`Client connected: ${client.id}`);
@@ -62,7 +76,6 @@ let MarketGateway = MarketGateway_1 = class MarketGateway {
     }
     async handleSubscribe(client, tokens) {
         this.logger.log(`Client ${client.id} subscribing to: ${tokens}`);
-        await this.marketService.subscribe(tokens);
     }
 };
 exports.MarketGateway = MarketGateway;
@@ -81,6 +94,8 @@ exports.MarketGateway = MarketGateway = MarketGateway_1 = __decorate([
         cors: {
             origin: '*',
         },
+        transports: ['websocket', 'polling'],
+        path: '/socket.io/',
     }),
     __metadata("design:paramtypes", [redis_service_1.RedisService,
         market_service_1.MarketService])

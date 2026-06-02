@@ -30,7 +30,7 @@ let AuthService = AuthService_1 = class AuthService {
     async login() {
         try {
             const clientCode = this.configService.get('SMART_CLIENT_CODE');
-            const password = this.configService.get('SMART_PASSWORD');
+            const password = this.configService.get('SMART_PIN') || this.configService.get('SMART_PASSWORD');
             const totpSecret = this.configService.get('SMART_TOTP_SECRET');
             const totp = authenticator.generate(totpSecret);
             const response = await this.smartApi.generateSession(clientCode, password, totp);

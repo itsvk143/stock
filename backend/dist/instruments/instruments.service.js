@@ -48,6 +48,7 @@ var InstrumentsService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.InstrumentsService = void 0;
 const common_1 = require("@nestjs/common");
+const JSONStream = __importStar(require("jsonstream"));
 const database_service_1 = require("../database/database.service");
 const axios_1 = __importDefault(require("axios"));
 const fs = __importStar(require("fs"));
@@ -60,6 +61,9 @@ let InstrumentsService = InstrumentsService_1 = class InstrumentsService {
     INSTRUMENT_URL = 'https://margincalculator.angelbroking.com/OpenAPI_Standard/v1/OpenAPIScripMaster.json';
     constructor(db) {
         this.db = db;
+    }
+    async onModuleInit() {
+        this.logger.log('Instruments Service Initialized (Sync bypassed for Data Layer)');
     }
     async syncInstruments() {
         const tempFilePath = path.join(os.tmpdir(), 'instruments.json');
@@ -79,7 +83,6 @@ let InstrumentsService = InstrumentsService_1 = class InstrumentsService {
             const stats = fs.statSync(tempFilePath);
             this.logger.log(`File downloaded: ${(stats.size / 1024 / 1024).toFixed(1)} MB. Parsing...`);
             const equities = [];
-            const JSONStream = require('JSONStream');
             const stream = fs.createReadStream(tempFilePath);
             const parser = JSONStream.parse('*');
             stream.pipe(parser);
@@ -138,6 +141,9 @@ let InstrumentsService = InstrumentsService_1 = class InstrumentsService {
         }
         catch (error) {
             this.logger.error(`Sync failed: ${error.message}`);
+            if (error.stack) {
+                this.logger.error(error.stack);
+            }
         }
         finally {
             try {
@@ -152,8 +158,8 @@ let InstrumentsService = InstrumentsService_1 = class InstrumentsService {
     async search(query) {
         const sql = `
       SELECT * FROM "InstrumentMaster"
-      WHERE "symbol" ILIKE $1 OR "tradingsymbol" ILIKE $1
-      LIMIT 10
+      WHERE LOWER("symbol") LIKE LOWER($1) OR LOWER("tradingsymbol") LIKE LOWER($1)
+      LIMIT 20
     `;
         const res = await this.db.query(sql, [`%${query}%`]);
         return res.rows;

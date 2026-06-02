@@ -8,7 +8,7 @@ class AngelOneProvider(BaseProvider):
     def __init__(self):
         self.api_key = os.getenv("SMART_API_KEY")
         self.client_id = os.getenv("SMART_CLIENT_ID")
-        self.password = os.getenv("SMART_PASSWORD")
+        self.password = os.getenv("SMART_PIN") or os.getenv("SMART_PASSWORD")
         self.totp_secret = os.getenv("SMART_TOTP_SECRET")
         self.smart_api = None
 

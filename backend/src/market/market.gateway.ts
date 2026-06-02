@@ -35,22 +35,33 @@ export class MarketGateway implements OnGatewayInit, OnGatewayConnection, OnGate
   private setupRedisSubscription() {
     const subscriber = this.redisService.getSubscriber();
     
-    const doSubscribe = () => {
-      this.logger.log('Redis ready, subscribing to market_ticks...');
-      subscriber.subscribe('market_ticks', (err) => {
-        if (err) {
-          this.logger.error(`Redis subscribe error: ${err.message}`);
-          setTimeout(() => doSubscribe(), 5000);
-        } else {
+    const subscribeToChannel = async () => {
+      try {
+        if (subscriber.status === 'ready') {
+          this.logger.log('Subscribing to market_ticks...');
+          await subscriber.subscribe('market_ticks');
           this.logger.log('Successfully subscribed to market_ticks channel');
+        } else {
+          this.logger.warn(`Cannot subscribe to market_ticks, subscriber status is: ${subscriber.status}`);
         }
-      });
+      } catch (err) {
+        this.logger.error(`Redis subscribe error: ${err.message}`);
+        // If still ready, retry after a delay
+        if (subscriber.status === 'ready') {
+          setTimeout(() => subscribeToChannel(), 5000);
+        }
+      }
     };
 
+    // Subscribe when the client becomes ready (on initial connection and after successful reconnects)
+    subscriber.on('ready', () => {
+      this.logger.log('Redis subscriber connected/reconnected');
+      subscribeToChannel();
+    });
+
+    // If already ready, subscribe immediately
     if (subscriber.status === 'ready') {
-      doSubscribe();
-    } else {
-      subscriber.once('ready', () => doSubscribe());
+      subscribeToChannel();
     }
 
     subscriber.on('message', (channel, message) => {
@@ -76,6 +87,6 @@ export class MarketGateway implements OnGatewayInit, OnGatewayConnection, OnGate
   @SubscribeMessage('subscribe_stock')
   async handleSubscribe(client: Socket, tokens: string[]) {
     this.logger.log(`Client ${client.id} subscribing to: ${tokens}`);
-    await this.marketService.subscribe(tokens);
+    // await this.marketService.subscribe(tokens);
   }
 }

@@ -4,7 +4,8 @@
   "description": "Production-grade AI-powered stock intelligence platform for Indian Equity Markets (NSE & BSE).",
   "main": "index.js",
   "scripts": {
-    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev": "concurrently \"npm run dev:data\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:data": "cd data-service && python3 main.py",
     "dev:backend": "cd backend && npm run start:dev",
     "dev:frontend": "cd frontend && npm run dev",
     "test": "echo \"Error: no test specified\" && exit 1"

@@ -12,7 +12,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     const host = this.configService.get<string>('REDIS_HOST', 'localhost');
     const port = this.configService.get<number>('REDIS_PORT', 6379);
 
-    const redisOptions = {
+    const redisOptions: any = {
       lazyConnect: true,
       maxRetriesPerRequest: 10,
       enableOfflineQueue: true,
@@ -20,6 +20,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         return Math.min(times * 500, 3000);
       },
     };
+
+    if (redisUrl && redisUrl.startsWith('rediss://')) {
+      redisOptions.tls = { rejectUnauthorized: false };
+    }
 
     if (redisUrl) {
       this.client = new Redis(redisUrl, redisOptions);

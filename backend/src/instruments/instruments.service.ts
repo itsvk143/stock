@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import * as JSONStream from 'JSONStream';
+import * as JSONStream from 'jsonstream';
 import { DatabaseService } from '../database/database.service';
 import axios from 'axios';
 import * as fs from 'fs';
@@ -16,19 +16,7 @@ export class InstrumentsService {
   constructor(private db: DatabaseService) {}
 
   async onModuleInit() {
-    // Check if we have data, if not, trigger a sync
-    try {
-      const res = await this.db.query('SELECT COUNT(*) FROM "InstrumentMaster"');
-      const count = parseInt(res.rows[0].count);
-      if (count === 0) {
-        this.logger.log('Database is empty. Triggering initial sync...');
-        this.syncInstruments();
-      } else {
-        this.logger.log(`Database has ${count} instruments.`);
-      }
-    } catch (error) {
-      this.logger.error(`Initial data check failed: ${error.message}`);
-    }
+    this.logger.log('Instruments Service Initialized (Sync bypassed for Data Layer)');
   }
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)

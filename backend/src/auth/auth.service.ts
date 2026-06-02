@@ -20,7 +20,7 @@ export class AuthService {
   async login() {
     try {
       const clientCode = this.configService.get<string>('SMART_CLIENT_CODE');
-      const password = this.configService.get<string>('SMART_PASSWORD');
+      const password = this.configService.get<string>('SMART_PIN') || this.configService.get<string>('SMART_PASSWORD');
       const totpSecret = this.configService.get<string>('SMART_TOTP_SECRET');
 
       const totp = authenticator.generate(totpSecret);

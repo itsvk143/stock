@@ -27,14 +27,15 @@ let RedisService = class RedisService {
         const port = this.configService.get('REDIS_PORT', 6379);
         const redisOptions = {
             lazyConnect: true,
-            maxRetriesPerRequest: 3,
-            enableOfflineQueue: false,
+            maxRetriesPerRequest: 10,
+            enableOfflineQueue: true,
             retryStrategy: (times) => {
-                if (times > 5)
-                    return null;
                 return Math.min(times * 500, 3000);
             },
         };
+        if (redisUrl && redisUrl.startsWith('rediss://')) {
+            redisOptions.tls = { rejectUnauthorized: false };
+        }
         if (redisUrl) {
             this.client = new ioredis_1.default(redisUrl, redisOptions);
             this.subscriber = new ioredis_1.default(redisUrl, redisOptions);
@@ -46,7 +47,17 @@ let RedisService = class RedisService {
         this.client.on('error', (err) => console.error('Redis client error:', err.message));
         this.subscriber.on('error', (err) => console.error('Redis subscriber error:', err.message));
     }
-    onModuleInit() { }
+    async onModuleInit() {
+        try {
+            await Promise.all([
+                this.client.connect(),
+                this.subscriber.connect(),
+            ]);
+        }
+        catch (err) {
+            console.error('Redis initialization failed:', err.message);
+        }
+    }
     onModuleDestroy() {
         this.client.quit();
         this.subscriber.quit();

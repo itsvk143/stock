@@ -6,7 +6,7 @@ export declare class RedisService implements OnModuleInit, OnModuleDestroy {
     private client;
     private subscriber;
     constructor(configService: ConfigService);
-    onModuleInit(): void;
+    onModuleInit(): Promise<void>;
     onModuleDestroy(): void;
     set(key: string, value: any, ttl?: number): Promise<void>;
     get<T>(key: string): Promise<T | null>;

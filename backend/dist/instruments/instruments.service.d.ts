@@ -4,6 +4,7 @@ export declare class InstrumentsService {
     private readonly logger;
     private readonly INSTRUMENT_URL;
     constructor(db: DatabaseService);
+    onModuleInit(): Promise<void>;
     syncInstruments(): Promise<void>;
     search(query: string): Promise<any[]>;
     getByToken(token: string): Promise<any>;

@@ -20,10 +20,11 @@ let InstrumentsController = class InstrumentsController {
     constructor(instrumentsService) {
         this.instrumentsService = instrumentsService;
     }
-    async search(query) {
-        if (!query || query.length < 2)
+    async search(q, query) {
+        const searchTerm = q || query;
+        if (!searchTerm || searchTerm.length < 2)
             return [];
-        return this.instrumentsService.search(query);
+        return this.instrumentsService.search(searchTerm);
     }
     async forceSync() {
         console.log('Sync request received at /api/instruments/sync');
@@ -49,8 +50,9 @@ exports.InstrumentsController = InstrumentsController;
 __decorate([
     (0, common_1.Get)('search'),
     __param(0, (0, common_1.Query)('q')),
+    __param(1, (0, common_1.Query)('query')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], InstrumentsController.prototype, "search", null);
 __decorate([
