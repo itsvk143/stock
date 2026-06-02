@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import * as JSONStream from 'jsonstream';
+import * as JSONStream from 'JSONStream';
 import { DatabaseService } from '../database/database.service';
 import axios from 'axios';
 import * as fs from 'fs';
