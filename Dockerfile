@@ -29,11 +29,12 @@ COPY --from=node-build /app/backend/package.json ./backend/package.json
 
 # Copy Python service
 COPY --from=python-build /app/data-service ./data-service
-RUN pip3 install --no-cache-dir -r data-service/requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r data-service/requirements.txt
 
 # Environment variables
 ENV PORT=8080
 ENV DATA_LAYER_URL=http://localhost:8001
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
 
 # Start both services using PM2
 COPY ecosystem.config.js ./
