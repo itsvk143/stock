@@ -11,7 +11,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 export class InstrumentsService {
   private readonly logger = new Logger(InstrumentsService.name);
   private readonly INSTRUMENT_URL =
-    'https://margincalculator.angelbroking.com/OpenAPI_Standard/v1/OpenAPIScripMaster.json';
+    'https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json';
 
   constructor(private db: DatabaseService) {}
 

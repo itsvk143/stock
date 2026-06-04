@@ -5,7 +5,6 @@ module.exports = {
       script: 'backend/dist/main.js',
       env: {
         NODE_ENV: 'production',
-        PORT: 8080,
         DATA_LAYER_URL: 'http://localhost:8001'
       }
     },
