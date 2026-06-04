@@ -38,4 +38,5 @@ ENV PIP_BREAK_SYSTEM_PACKAGES=1
 
 # Start both services using PM2
 COPY ecosystem.config.js ./
+EXPOSE 8080
 CMD ["pm2-runtime", "ecosystem.config.js"]
